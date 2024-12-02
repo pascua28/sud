@@ -26,6 +26,8 @@
 #define LOGV(...) __android_log_print(ANDROID_LOG_VERBOSE, LOG_TAG, __VA_ARGS__)
 #define LOGW LOGD
 
+#define PORT 3523
+
 #ifdef LOG_TAG
 #undef LOG_TAG
 #endif
@@ -53,32 +55,6 @@
 #define CM_ROOT_ACCESS_ADB_ONLY      2
 #define CM_ROOT_ACCESS_APPS_AND_ADB  3
 
-// DO NOT CHANGE LINE BELOW, java package name will always be the same
-#define JAVA_PACKAGE_NAME "com.koushikdutta.superuser"
-
-// If --rename-manifest-package is used in AAPT, this
-// must be changed to correspond to the new APK package name
-// See the two Android.mk files for more details.
-#ifndef REQUESTOR
-#define REQUESTOR JAVA_PACKAGE_NAME
-#endif
-// This is used if wrapping the fragment classes and activities
-// with classes in another package. CM requirement.
-#ifndef REQUESTOR_PREFIX
-#define REQUESTOR_PREFIX JAVA_PACKAGE_NAME
-#endif
-#define REQUESTOR_DATA_PATH "/data/data/"
-#define REQUESTOR_FILES_PATH REQUESTOR_DATA_PATH REQUESTOR "/files"
-#define REQUESTOR_USER_PATH "/data/user/"
-#define REQUESTOR_CACHE_PATH "/dev/" REQUESTOR
-#define REQUESTOR_DAEMON_PATH REQUESTOR_CACHE_PATH ".daemon"
-
-// there's no guarantee that the db or files are actually created named as such by
-// SQLiteOpenHelper, etc. Though that is the behavior as of current.
-// it is up to the Android application to symlink as appropriate.
-#define REQUESTOR_DATABASE_PATH REQUESTOR "/databases/su.sqlite"
-#define REQUESTOR_MULTIUSER_MODE REQUESTOR_FILES_PATH "/multiuser_mode"
-
 #define DEFAULT_SHELL "/system/bin/sh"
 
 #define xstr(a) str(a)
@@ -87,7 +63,6 @@
 #ifndef VERSION_CODE
 #define VERSION_CODE 16
 #endif
-#define VERSION xstr(VERSION_CODE) " " REQUESTOR
 
 #define PROTO_VERSION 1
 

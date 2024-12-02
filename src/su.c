@@ -227,11 +227,11 @@ static void cleanup_signal(int sig) {
     exit(128 + sig);
 }
 
-static int socket_create_temp(char *path, size_t len) {
+static int socket_create_temp() {
     int fd;
-    struct sockaddr_un sun;
+    struct sockaddr_in sun;
 
-    fd = socket(AF_LOCAL, SOCK_STREAM, 0);
+    fd = socket(AF_INET, SOCK_STREAM, 0);
     if (fd < 0) {
         PLOGE("socket");
         return -1;
@@ -241,18 +241,9 @@ static int socket_create_temp(char *path, size_t len) {
         goto err;
     }
 
-    memset(&sun, 0, sizeof(sun));
-    sun.sun_family = AF_LOCAL;
-    snprintf(path, len, "%s/.socket%d", REQUESTOR_CACHE_PATH, getpid());
-    memset(sun.sun_path, 0, sizeof(sun.sun_path));
-    snprintf(sun.sun_path, sizeof(sun.sun_path), "%s", path);
-
-    /*
-     * Delete the socket to protect from situations when
-     * something bad occured previously and the kernel reused pid from that process.
-     * Small probability, isn't it.
-     */
-    unlink(sun.sun_path);
+    sun.sin_family = AF_INET;
+    sun.sin_addr.s_addr = INADDR_ANY;
+    sun.sin_port = htons(PORT);
 
     if (bind(fd, (struct sockaddr*)&sun, sizeof(sun)) < 0) {
         PLOGE("bind");
@@ -575,7 +566,6 @@ int su_main(int argc, char *argv[], int need_client) {
             printf("%d\n", VERSION_CODE);
             exit(EXIT_SUCCESS);
         case 'v':
-            printf("%s\n", VERSION);
             exit(EXIT_SUCCESS);
         default:
             /* Bionic getopt_long doesn't terminate its error output by newline */
@@ -639,12 +629,6 @@ int su_main(int argc, char *argv[], int need_client) {
 
     ctx.umask = umask(027);
 
-    mkdir(REQUESTOR_CACHE_PATH, 0770);
-    if (chown(REQUESTOR_CACHE_PATH, st.st_uid, st.st_gid)) {
-        PLOGE("chown (%s, %u, %u)", REQUESTOR_CACHE_PATH, st.st_uid, st.st_gid);
-        fail(&ctx);
-    }
-
     if (setgroups(0, NULL)) {
         PLOGE("setgroups");
         fail(&ctx);
@@ -658,7 +642,7 @@ int su_main(int argc, char *argv[], int need_client) {
         fail(&ctx);
     }
 
-    socket_serv_fd = socket_create_temp(ctx.sock_path, sizeof(ctx.sock_path));
+    socket_serv_fd = socket_create_temp();
     LOGD("%s", ctx.sock_path);
     if (socket_serv_fd < 0) {
         fail(&ctx);
