@@ -372,6 +372,25 @@ void redirectStd(int old_fd) {
     dup2(old_fd, STDERR_FILENO);
 }
 
+static void move_cgroup(int dpid) {
+    const char* cgroup_path = "/sys/fs/cgroup/uid_0/cgroup.procs";
+    char buf[8];
+    snprintf(buf, sizeof(buf), "%d\n", dpid);
+
+    if (getuid() != 1000)
+        return;
+
+    int fd = open(cgroup_path, O_WRONLY);
+    if (fd < 0)
+        return;
+
+    if (write(fd, buf, strlen(buf)) == -1) {
+        close(fd);
+        return;
+    }
+    close(fd);
+}
+
 int run_daemon() {
     int fd;
     struct sockaddr_in sun;
@@ -417,6 +436,7 @@ int run_daemon() {
             redirectStd(client);
             return daemon_accept(client);
         }
+        move_cgroup(getpid());
         close(client);
     }
 
