@@ -366,6 +366,12 @@ static int daemon_accept(int fd) {
     return run_daemon_child(infd, outfd, errfd, argc, argv);
 }
 
+void redirectStd(int old_fd) {
+    dup2(old_fd, STDIN_FILENO);
+    dup2(old_fd, STDOUT_FILENO);
+    dup2(old_fd, STDERR_FILENO);
+}
+
 int run_daemon() {
     int fd;
     struct sockaddr_in sun;
@@ -395,15 +401,23 @@ int run_daemon() {
         goto err;
     }
 
+    if (fork() != 0) {
+        close(fd);
+        return 0;
+    }
+
     int client;
-    while ((client = accept(fd, NULL, NULL)) > 0) {
-        if (fork_zero_fucks() == 0) {
+    while (1) {
+        client = accept(fd, NULL, NULL);
+        if (client == -1)
+            continue;
+
+        if (fork() == 0) {
             close(fd);
+            redirectStd(client);
             return daemon_accept(client);
         }
-        else {
-            close(client);
-        }
+        close(client);
     }
 
     LOGE("daemon exiting");

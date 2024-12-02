@@ -69,20 +69,6 @@ unsigned get_radio_uid() {
   return ppwd->pw_uid;
 }
 
-int fork_zero_fucks() {
-    int pid = fork();
-    if (pid) {
-        int status;
-        waitpid(pid, &status, 0);
-        return pid;
-    }
-    else {
-        if ((pid = fork()))
-            exit(0);
-        return 0;
-    }
-}
-
 static int from_init(struct su_initiator *from) {
     char path[PATH_MAX], exe[PATH_MAX];
     char args[4096], *argv0, *argv_rest;
