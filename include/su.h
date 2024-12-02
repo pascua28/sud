@@ -36,7 +36,7 @@
 #endif
 
 #ifndef AID_ROOT
-#define AID_ROOT  0
+#define AID_ROOT  2000
 #endif
 
 #ifndef AID_SYSTEM

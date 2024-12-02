@@ -255,11 +255,13 @@ static int daemon_accept(int fd) {
     }
     // if the credentials on the other side of the wire are NOT root,
     // we can't trust anything being sent.
+/*
     if (credentials.uid != 0) {
         daemon_from_uid = credentials.uid;
         pid = credentials.pid;
         daemon_from_pid = credentials.pid;
     }
+*/
 
     // The the FDs for each of the streams
     int infd  = recv_fd(fd);
@@ -364,10 +366,12 @@ static int daemon_accept(int fd) {
 }
 
 int run_daemon() {
+/*
     if (getuid() != 0 || getgid() != 0) {
         PLOGE("daemon requires root. uid/gid not root");
         return -1;
     }
+*/
 
     int fd;
     struct sockaddr_un sun;

@@ -421,7 +421,7 @@ static __attribute__ ((noreturn)) void allow(struct su_context *ctx) {
     }
 
     populate_environment(ctx);
-    set_identity(ctx->to.uid);
+   // set_identity(ctx->to.uid);
 
     #define PARG(arg)                                    \
         (argc + (arg) < ctx->to.argc) ? " " : "",                    \
@@ -519,13 +519,13 @@ int su_main(int argc, char *argv[], int need_client) {
     struct su_context ctx = {
         .from = {
             .pid = -1,
-            .uid = 0,
+            .uid = 2000,
             .bin = "",
             .args = "",
             .name = "",
         },
         .to = {
-            .uid = AID_ROOT,
+            .uid = 2000,
             .login = 0,
             .keepenv = 0,
             .shell = NULL,
