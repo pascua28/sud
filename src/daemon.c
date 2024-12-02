@@ -41,6 +41,7 @@
 #include <termios.h>
 #include <signal.h>
 #include <string.h>
+#include <arpa/inet.h>
 
 #include "su.h"
 #include "utils.h"
@@ -366,17 +367,10 @@ static int daemon_accept(int fd) {
 }
 
 int run_daemon() {
-/*
-    if (getuid() != 0 || getgid() != 0) {
-        PLOGE("daemon requires root. uid/gid not root");
-        return -1;
-    }
-*/
-
     int fd;
-    struct sockaddr_un sun;
+    struct sockaddr_in sun;
 
-    fd = socket(AF_LOCAL, SOCK_STREAM, 0);
+    fd = socket(AF_INET, SOCK_STREAM, 0);
     if (fd < 0) {
         PLOGE("socket");
         return -1;
@@ -386,33 +380,15 @@ int run_daemon() {
         goto err;
     }
 
-    memset(&sun, 0, sizeof(sun));
-    sun.sun_family = AF_LOCAL;
-    sprintf(sun.sun_path, "%s/server", REQUESTOR_DAEMON_PATH);
+    sun.sin_family = AF_INET;
+    sun.sin_addr.s_addr = INADDR_ANY;
+    sun.sin_port = htons(PORT);
 
-    /*
-     * Delete the socket to protect from situations when
-     * something bad occured previously and the kernel reused pid from that process.
-     * Small probability, isn't it.
-     */
-    unlink(sun.sun_path);
-    unlink(REQUESTOR_DAEMON_PATH);
-
-    int previous_umask = umask(027);
-    mkdir(REQUESTOR_DAEMON_PATH, 0777);
-
-    memset(sun.sun_path, 0, sizeof(sun.sun_path));
-    memcpy(sun.sun_path, "\0" "SUPERUSER", strlen("SUPERUSER") + 1);
-
+    // The socket path is hidden and won't be accessible via normal filesystem tools
     if (bind(fd, (struct sockaddr*)&sun, sizeof(sun)) < 0) {
         PLOGE("daemon bind");
         goto err;
     }
-
-    chmod(REQUESTOR_DAEMON_PATH, 0755);
-    chmod(sun.sun_path, 0777);
-
-    umask(previous_umask);
 
     if (listen(fd, 10) < 0) {
         PLOGE("daemon listen");
@@ -495,10 +471,10 @@ int connect_daemon(int argc, char *argv[], int ppid) {
     int ptmx;
     char pts_slave[PATH_MAX];
 
-    struct sockaddr_un sun;
+    struct sockaddr_in sun;
 
     // Open a socket to the daemon
-    int socketfd = socket(AF_LOCAL, SOCK_STREAM, 0);
+    int socketfd = socket(AF_INET, SOCK_STREAM, 0);
     if (socketfd < 0) {
         PLOGE("socket");
         exit(-1);
@@ -508,12 +484,9 @@ int connect_daemon(int argc, char *argv[], int ppid) {
         exit(-1);
     }
 
-    memset(&sun, 0, sizeof(sun));
-    sun.sun_family = AF_LOCAL;
-    sprintf(sun.sun_path, "%s/server", REQUESTOR_DAEMON_PATH);
-
-    memset(sun.sun_path, 0, sizeof(sun.sun_path));
-    memcpy(sun.sun_path, "\0" "SUPERUSER", strlen("SUPERUSER") + 1);
+    sun.sin_family = AF_INET;
+    sun.sin_port = htons(PORT);
+    sun.sin_addr.s_addr = inet_addr("127.0.0.1");
 
     if (0 != connect(socketfd, (struct sockaddr*)&sun, sizeof(sun))) {
         PLOGE("connect");
