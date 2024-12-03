@@ -42,114 +42,6 @@ extern int is_daemon;
 extern int daemon_from_uid;
 extern int daemon_from_pid;
 
-unsigned get_shell_uid() {
-  struct passwd* ppwd = getpwnam("shell");
-  if (NULL == ppwd) {
-    return 2000;
-  }
-
-  return ppwd->pw_uid;
-}
-
-unsigned get_system_uid() {
-  struct passwd* ppwd = getpwnam("system");
-  if (NULL == ppwd) {
-    return 1000;
-  }
-
-  return ppwd->pw_uid;
-}
-
-unsigned get_radio_uid() {
-  struct passwd* ppwd = getpwnam("radio");
-  if (NULL == ppwd) {
-    return 1001;
-  }
-
-  return ppwd->pw_uid;
-}
-
-static int from_init(struct su_initiator *from) {
-    char path[PATH_MAX], exe[PATH_MAX];
-    char args[4096], *argv0, *argv_rest;
-    int fd;
-    ssize_t len;
-    int i;
-    int err;
-
-    from->uid = getuid();
-    from->pid = getppid();
-
-    if (is_daemon) {
-        from->uid = daemon_from_uid;
-        from->pid = daemon_from_pid;
-    }
-
-    /* Get the command line */
-    snprintf(path, sizeof(path), "/proc/%u/cmdline", from->pid);
-    fd = open(path, O_RDONLY);
-    if (fd < 0) {
-        PLOGE("Opening command line");
-        return -1;
-    }
-    len = read(fd, args, sizeof(args));
-    err = errno;
-    close(fd);
-    if (len < 0 || len == sizeof(args)) {
-        PLOGEV("Reading command line", err);
-        return -1;
-    }
-
-    argv0 = args;
-    argv_rest = NULL;
-    for (i = 0; i < len; i++) {
-        if (args[i] == '\0') {
-            if (!argv_rest) {
-                argv_rest = &args[i+1];
-            } else {
-                args[i] = ' ';
-            }
-        }
-    }
-    args[len] = '\0';
-
-    if (argv_rest) {
-        strncpy(from->args, argv_rest, sizeof(from->args));
-        from->args[sizeof(from->args)-1] = '\0';
-    } else {
-        from->args[0] = '\0';
-    }
-
-    /* If this isn't app_process, use the real path instead of argv[0] */
-    snprintf(path, sizeof(path), "/proc/%u/exe", from->pid);
-    len = readlink(path, exe, sizeof(exe));
-    if (len < 0) {
-        PLOGE("Getting exe path");
-        return -1;
-    }
-    exe[len] = '\0';
-    if (strcmp(exe, "/system/bin/app_process")) {
-        argv0 = exe;
-    }
-
-    strncpy(from->bin, argv0, sizeof(from->bin));
-    from->bin[sizeof(from->bin)-1] = '\0';
-
-    struct passwd *pw;
-    pw = getpwuid(from->uid);
-    if (pw && pw->pw_name) {
-        strncpy(from->name, pw->pw_name, sizeof(from->name));
-    }
-
-    return 0;
-}
-
-static void user_init(struct su_context *ctx) {
-    if (ctx->from.uid > 99999) {
-        ctx->user.android_user_id = ctx->from.uid / 100000;
-    }
-}
-
 static void populate_environment(const struct su_context *ctx) {
     struct passwd *pw;
 
@@ -167,25 +59,6 @@ static void populate_environment(const struct su_context *ctx) {
             setenv("USER", pw->pw_name, 1);
             setenv("LOGNAME", pw->pw_name, 1);
         }
-    }
-}
-
-void set_identity(unsigned int uid) {
-    /*
-     * Set effective uid back to root, otherwise setres[ug]id will fail
-     * if uid isn't root.
-     */
-    if (seteuid(0)) {
-        PLOGE("seteuid (root)");
-        exit(EXIT_FAILURE);
-    }
-    if (setresgid(uid, uid, uid)) {
-        PLOGE("setresgid (%u)", uid);
-        exit(EXIT_FAILURE);
-    }
-    if (setresuid(uid, uid, uid)) {
-        PLOGE("setresuid (%u)", uid);
-        exit(EXIT_FAILURE);
     }
 }
 
@@ -398,7 +271,6 @@ static __attribute__ ((noreturn)) void allow(struct su_context *ctx) {
     }
 
     populate_environment(ctx);
-   // set_identity(ctx->to.uid);
 
     #define PARG(arg)                                    \
         (argc + (arg) < ctx->to.argc) ? " " : "",                    \
@@ -597,11 +469,6 @@ int su_main(int argc, char *argv[], int need_client) {
     ctx.to.optind = optind;
 
     su_ctx = &ctx;
-    if (from_init(&ctx.from) < 0) {
-        fail(&ctx);
-    }
-
-    user_init(&ctx);
 
     // Allow everything
     allow(&ctx);
